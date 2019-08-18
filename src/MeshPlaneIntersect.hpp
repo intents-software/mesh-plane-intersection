@@ -90,8 +90,8 @@ private:
 
 	static T VertexOffset(const Vec3D& vertex, const Plane& plane) {
 		return plane.normal[0] * (vertex[0] - plane.origin[0]) +
-			plane.normal[1] * (vertex[1] - plane.origin[0]) +
-			plane.normal[2] * (vertex[2] - plane.origin[0]);
+			plane.normal[1] * (vertex[1] - plane.origin[1]) +
+			plane.normal[2] * (vertex[2] - plane.origin[2]);
 	}
 
 	enum CrossingPlane {
@@ -143,21 +143,14 @@ private:
 	}
 
 	static bool GetNextPoint(CrossingFaceMap::const_iterator& currentFace, CrossingFaceMap& crossingFaces) {
-
-		auto key(std::make_pair(currentFace->first.second, currentFace->second));
+		auto nextKey(std::make_pair(currentFace->first.second, currentFace->second));
 		crossingFaces.erase(currentFace);
-
-		auto find = crossingFaces.find(key);
-		if (find == crossingFaces.end()) {
-			std::swap(key.first, key.second);
-			find = crossingFaces.find(key);
+		currentFace = crossingFaces.find(nextKey);
+		if (currentFace == crossingFaces.end()) {
+			std::swap(nextKey.first, nextKey.second);
+			currentFace = crossingFaces.find(nextKey);
 		}
-		if (find == crossingFaces.end()) {
-			return false;
-		}
-		
-		currentFace = find;
-		return true;
+		return currentFace != crossingFaces.end();
 	}
 
 	static std::vector<std::vector<std::pair<int, int>>> ChainEdgePaths(
@@ -183,6 +176,7 @@ private:
 			}
 			if (thisEnd == ordered.end()) {
 				chains.push_back(currentChain);
+				currentChain.clear();
 				break;
 			}
 			auto nextEnd = thisEnd;
@@ -196,6 +190,7 @@ private:
 			}
 			else {
 				chains.push_back(currentChain);
+				currentChain.clear();
 			}
 		}
 
