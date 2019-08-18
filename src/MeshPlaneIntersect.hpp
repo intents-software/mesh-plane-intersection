@@ -34,12 +34,18 @@ struct MeshPlaneIntersect {
 
 private:
 
+	// constructor is private, use the static method
+	// MeshPlaneIntersect<T>::Intersect(mesh, plane)
+	MeshPlaneIntersect() {};
+
 	static Vec3D add(const Vec3D& a, const Vec3D& b) {
 		return Vec3D{ b[0] + a[0],b[1] + a[1],b[2] + a[2] };
 	}
+
 	static Vec3D difference(const Vec3D& a, const Vec3D& b) {
 		return Vec3D{ b[0] - a[0],b[1] - a[1],b[2] - a[2] };
 	}
+
 	static Vec3D factor(const Vec3D& a, const T& factor) {
 		return Vec3D{ a[0] * factor,a[1] * factor,a[2] * factor };
 	}
