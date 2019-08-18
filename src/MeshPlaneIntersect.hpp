@@ -4,138 +4,204 @@
 
 #include <vector>
 #include <array>
-#include <unordered_map>
+#include <map>
 #include <algorithm>
 
 template <class T>
 struct MeshPlaneIntersect {
 
-    struct Mesh {
-        const std::vector<std::array<T, 3>>* vertices;
-        const std::vector<std::array<int, 3>>* faces;
-    };
+	typedef std::array<T, 3> Vec3D;
+	typedef std::array<int, 3> Face;
 
-    struct Plane {
-        std::array<T, 3> origin;
-        std::array<T, 3> normal;
-    };
+	struct Mesh {
+		const std::vector<Vec3D>* vertices;
+		const std::vector<Face>* faces;
+	};
 
-    std::vector<std::array<T, 3>> Intersect(const Mesh& mesh, const Plane& plane) {
-        return _Intersect(mesh, plane);
-    }
+	struct Plane {
+		Vec3D origin = { 0,0,0 };
+		Vec3D normal = { 0,0,1 };
+	};
 
-    private:
+	struct Path3D {
+		std::vector<Vec3D> points;
+		bool isClosed = false;
+	};
 
-    struct Edge {
-        std::array<int, 2> adjacent_faces;
-        bool crossesPlane = false;
-        bool visited = false;
-        Edge(){
-            adjacent_faces.fill(-1);
-        }
-    };
+	static std::vector<Path3D> Intersect(const Mesh & mesh, const Plane & plane) {
+		return _Intersect(mesh, plane);
+	}
 
-    const Mesh* m_mesh;
-    const Plane* m_plane;
-    std::vector<T> m_vertexOffsets;
-    std::unordered_map<std::pair<int, int>, Edge> m_edges;
-    auto m_currentEdge, m_startingEdge;
-    bool m_isFirstPoint;
-    std::array<T, 2> m_currentPoint;
+private:
 
-    std::vector<std::array<T, 3>> _Intersect(const Mesh& mesh, const Plane& plane) {
-        m_mesh = &_mesh;
-        m_plane = &_plane;
-        CalculateVertexOffsets();
-        CreateEdgesMap();
-        std::vector<std::vector<T>> intersections;
-        while(FindStartingEdge()){
-            intersections.push_back(GetIntersection());
-        }
-        return intersections;
-    }
-    
-    void CalculateVertexOffsets(){
-        vertexOffsets.resize(mesh->vertices.size());
-        int iVertex(0);
-        for(const auto& vertex : mesh->vertices){
-            vertexOffsets[iVertex++] = VertexOffset(vertex);
-        }
-    }
+	static Vec3D add(const Vec3D& a, const Vec3D& b) {
+		return Vec3D{ b[0] + a[0],b[1] + a[1],b[2] + a[2] };
+	}
+	static Vec3D difference(const Vec3D& a, const Vec3D& b) {
+		return Vec3D{ b[0] - a[0],b[1] - a[1],b[2] - a[2] };
+	}
+	static Vec3D factor(const Vec3D& a, const T& factor) {
+		return Vec3D{ a[0] * factor,a[1] * factor,a[2] * factor };
+	}
 
-    T VertexOffset(const std::array<T, 3>& vertex){
-        // TODO do transform on plane and return z value
-    }
-    
-    CreateEdgesMap(){
-        edges.clear();
-        int iFace(0);
-        for(const auto& face : mesh->faces){
-            for(int iEdge(0); iEdge<3; ++iEdge){
-                auto key(std::make_pair(face[iEdge], face[(iEdge+1)%3]));
-                const bool isReversed(key.second > key.first);
-                if(isReversed){
-                    std::swap(key.first, key.second);
-                }
-                const bool isNewKey(edges.find(key) == edges.end());
-                auto& edge(edges[key]);
-                edge.adjacent_faces[isReversed] = iFace++;
-                if(isNewKey){
-                    edge.crossesPlane =
-                        (vertexOffsets[key.first] > 0 && vertexOffsets[key.second] <= 0) ||
-                        (vertexOffsets[key.second] > 0 && vertexOffsets[key.first] <= 0);
-                }
-            }
-        }
-    }
+	static std::vector<Path3D> _Intersect(const Mesh & mesh, const Plane & plane) {
+		
+		const auto vertexOffsets = VertexOffsets(*mesh.vertices, plane);
+		auto crossingFaces = CrossingFaces(*mesh.faces, vertexOffsets);
 
-    bool FindStartingEdge(){
-        m_currentEdge = std::find_if(edges.begin(), edges.end(), [](auto& edge){
-            return edge.second.crossesPlane && !edge.second.visited;
-        });
-        m_startingEdge = m_currentEdge;
-        m_isFirstPoint = true;
-        return m_currentEdge != edges.end();
-    }
+		std::vector<std::vector<std::pair<int, int>>> edgePaths;
+		while (crossingFaces.size() > 0) {
+			edgePaths.push_back(GetEdgePath(crossingFaces));
+		}
+		edgePaths = ChainEdgePaths(edgePaths);
 
-    std::vector<std::array<T, 3>> GetIntersection(){
-        std::vector<std::array<T, 3>> intersection;
-        while(MoveToNextPoint()){
-            intersection.push_back(m_currentPoint);
-        }
-        return intersection;
-    }
+		std::vector<Path3D> paths;
+		for (const auto& edgePath : edgePaths) {
+			Path3D path;
+			for (const auto& edge : edgePath) {
+				auto ratio = vertexOffsets[edge.first] /(vertexOffsets[edge.first] - vertexOffsets[edge.second]);
+				auto vector = difference(mesh.vertices->at(edge.first), mesh.vertices->at(edge.second));
+				auto point = add(mesh.vertices->at(edge.first), factor(vector, ratio));
+				path.points.push_back(point);
+			}
+			path.isClosed = edgePath.front() == edgePath.back();
+			if (path.isClosed) {
+				path.points.pop_back();
+			}
+			paths.push_back(path);
+		}
+		return paths;
+	}
 
-    bool MoveToNextPoint(){
+	static const std::vector<T> VertexOffsets(const std::vector<Vec3D>& vertices, const Plane& plane) {
+		std::vector<T> offsets(vertices.size());
+		int iVertex(0);
+		for (const auto& vertex : vertices) {
+			offsets[iVertex++] = VertexOffset(vertex, plane);
+		}
+		return offsets;
+	}
 
-        if(m_isFirstPoint){
-            SetCurrentPointFromCurrentEdge();
-            m_isFirstPoint = false;
-            return true;
-        }
+	static T VertexOffset(const Vec3D& vertex, const Plane& plane) {
+		return plane.normal[0] * (vertex[0] - plane.origin[0]) +
+			plane.normal[1] * (vertex[1] - plane.origin[0]) +
+			plane.normal[2] * (vertex[2] - plane.origin[0]);
+	}
 
-        while MoveToNextEdge();
-        SetCurrentPointFromCurrentEdge();
-        return m_currentEdge != m_startingEdge;
-    }
+	enum CrossingPlane {
+		DOWNWARDS = -1,
+		NONE = 0,
+		UPWARDS = 1
+	};
 
-    bool MoveToNextEdge(){
-        // loop through the faces of iFace and return the edge that 
-        // is not currentEdge but crosses the plane
+	static CrossingPlane DoesEdgeCrossPlane(const int& v0, const int& v1, const std::vector<T>& vertexOffsets) {
+		return vertexOffsets[v1] > 0 && vertexOffsets[v0] <= 0 ? UPWARDS :
+			vertexOffsets[v0] > 0 && vertexOffsets[v1] <= 0 ? DOWNWARDS : NONE;
+	}
 
-        // if none cross, return the first free edge
-        return true;
+	typedef std::map<std::pair<int, int>, int> CrossingFaceMap;
+	static CrossingFaceMap CrossingFaces(const std::vector<Face>& faces, const std::vector<T>& vertexOffsets) {
+		CrossingFaceMap crossingFaces;
+		for (const auto& face : faces) {
 
-        // if no free edges, return the last edge
-        return false;
-    }
+			const auto e1 = DoesEdgeCrossPlane(face[0], face[1], vertexOffsets);
+			const auto e2 = DoesEdgeCrossPlane(face[1], face[2], vertexOffsets);
 
-    void SetCurrentPointFromCurrentEdge(){
-        // if edge crosses, interpolate, otherwise return the
-        // point at the other end of the edge
-        // always transformed projected onto the plane
-        currentPoint = ...
-    }
+			if (e1 == NONE && e2 == NONE)
+				continue;
 
+			int oddVertex = e1 == NONE ? 2 : e2 == NONE ? 0 : 1;
+			const bool oddIsHigher = vertexOffsets[face[oddVertex]] > 0;
+			crossingFaces[{face[(oddVertex + 1 + oddIsHigher) % 3], face[oddVertex]}] =
+				face[(oddVertex + 2 - oddIsHigher) % 3];
+		}
+		return crossingFaces;
+	}
 
-}
+	static std::vector<std::pair<int, int>> GetEdgePath(CrossingFaceMap& crossingFaces) {
+		auto currentFace = crossingFaces.begin();
+		std::vector<std::pair<int, int>> edgePath({ currentFace->first });
+		int closingVertex(currentFace->second);
+		while (GetNextPoint(currentFace, crossingFaces)) {
+			edgePath.push_back(currentFace->first);
+			closingVertex = currentFace->second;
+		}
+		edgePath.push_back({ edgePath.back().second, closingVertex });
+
+		for (auto& edge : edgePath) {
+			if (edge.first > edge.second) {
+				std::swap(edge.first, edge.second);
+			}
+		}
+		return edgePath;
+	}
+
+	static bool GetNextPoint(CrossingFaceMap::const_iterator& currentFace, CrossingFaceMap& crossingFaces) {
+
+		auto key(std::make_pair(currentFace->first.second, currentFace->second));
+		crossingFaces.erase(currentFace);
+
+		auto find = crossingFaces.find(key);
+		if (find == crossingFaces.end()) {
+			std::swap(key.first, key.second);
+			find = crossingFaces.find(key);
+		}
+		if (find == crossingFaces.end()) {
+			return false;
+		}
+		
+		currentFace = find;
+		return true;
+	}
+
+	static std::vector<std::vector<std::pair<int, int>>> ChainEdgePaths(
+		const std::vector<std::vector<std::pair<int, int>>>& edgePaths) {
+
+		std::map<std::tuple<int, int, bool>, int> ordered;
+
+		int iPath(0);
+		for (const auto& path : edgePaths) {
+			ordered[{path.front().first, path.front().second, true}] = iPath;
+			ordered[{path.back().first, path.back().second, false}] = iPath++;
+		}
+		std::vector<std::vector<int>> chains;
+		std::vector<int> currentChain;
+		for (auto thisEnd(ordered.begin()); thisEnd != ordered.end(); thisEnd++) {
+
+			if (currentChain.size() == 0) {
+				currentChain.push_back(thisEnd->second);
+				thisEnd++;
+			}
+			if (std::get<2>(thisEnd->first)) {
+				thisEnd++;
+			}
+			if (thisEnd == ordered.end()) {
+				chains.push_back(currentChain);
+				break;
+			}
+			auto nextEnd = thisEnd;
+			nextEnd++;
+
+			if (nextEnd != ordered.end() && 
+				std::get<0>(thisEnd->first) == std::get<0>(nextEnd->first) &&
+				std::get<1>(thisEnd->first) == std::get<1>(nextEnd->first)) {
+				currentChain.push_back(nextEnd->second);
+				thisEnd++;
+			}
+			else {
+				chains.push_back(currentChain);
+			}
+		}
+
+		std::vector<std::vector<std::pair<int, int>>> newPaths;
+		for (const auto& chain : chains) {
+			auto path(edgePaths[*chain.begin()]);
+			for (int iTail(1); iTail < chain.size(); ++iTail) {
+				const auto& tail(edgePaths[chain[iTail]]);
+				path.insert(path.end(), tail.begin() + 1, tail.end());
+			}
+			newPaths.push_back(path);
+		}
+		return newPaths;
+	}
+};
