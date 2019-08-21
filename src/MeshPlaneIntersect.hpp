@@ -1,6 +1,6 @@
-
 // (c) 2019 Tim Lyon
 // This code is licensed under MIT license
+// https://github.com/tim-lyon/mesh-plane-intersection
 
 #include <vector>
 #include <array>
