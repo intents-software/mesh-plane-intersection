@@ -28,7 +28,7 @@ struct MeshPlaneIntersect {
 		bool isClosed = false;
 	};
 
-	static std::vector<Path3D> Intersect(const Mesh & mesh, const Plane & plane) {
+	static std::vector<Path3D> Intersect(const Mesh& mesh, const Plane& plane) {
 		return _Intersect(mesh, plane);
 	}
 
@@ -50,12 +50,14 @@ private:
 		return Vec3D{ a[0] * factor,a[1] * factor,a[2] * factor };
 	}
 
-	static std::vector<Path3D> _Intersect(const Mesh & mesh, const Plane & plane) {
-		
+	typedef std::pair<int, int> Edge;
+	typedef std::vector<Edge> EdgePath;
+	static std::vector<Path3D> _Intersect(const Mesh& mesh, const Plane& plane) {
+
 		const auto vertexOffsets = VertexOffsets(*mesh.vertices, plane);
 		auto crossingFaces = CrossingFaces(*mesh.faces, vertexOffsets);
-
-		std::vector<std::vector<std::pair<int, int>>> edgePaths;
+		
+		std::vector<EdgePath> edgePaths;
 		while (crossingFaces.size() > 0) {
 			edgePaths.push_back(GetEdgePath(crossingFaces));
 		}
@@ -65,7 +67,7 @@ private:
 		for (const auto& edgePath : edgePaths) {
 			Path3D path;
 			for (const auto& edge : edgePath) {
-				auto ratio = vertexOffsets[edge.first] /(vertexOffsets[edge.first] - vertexOffsets[edge.second]);
+				auto ratio = vertexOffsets[edge.first] / (vertexOffsets[edge.first] - vertexOffsets[edge.second]);
 				auto vector = difference(mesh.vertices->at(edge.first), mesh.vertices->at(edge.second));
 				auto point = add(mesh.vertices->at(edge.first), factor(vector, ratio));
 				path.points.push_back(point);
@@ -105,7 +107,7 @@ private:
 			vertexOffsets[v0] > 0 && vertexOffsets[v1] <= 0 ? DOWNWARDS : NONE;
 	}
 
-	typedef std::map<std::pair<int, int>, int> CrossingFaceMap;
+	typedef std::map<Edge, int> CrossingFaceMap;
 	static CrossingFaceMap CrossingFaces(const std::vector<Face>& faces, const std::vector<T>& vertexOffsets) {
 		CrossingFaceMap crossingFaces;
 		for (const auto& face : faces) {
@@ -124,9 +126,9 @@ private:
 		return crossingFaces;
 	}
 
-	static std::vector<std::pair<int, int>> GetEdgePath(CrossingFaceMap& crossingFaces) {
+	static EdgePath GetEdgePath(CrossingFaceMap& crossingFaces) {
 		auto currentFace = crossingFaces.begin();
-		std::vector<std::pair<int, int>> edgePath({ currentFace->first });
+		EdgePath edgePath({ currentFace->first });
 		int closingVertex(currentFace->second);
 		while (GetNextPoint(currentFace, crossingFaces)) {
 			edgePath.push_back(currentFace->first);
@@ -153,8 +155,8 @@ private:
 		return currentFace != crossingFaces.end();
 	}
 
-	static std::vector<std::vector<std::pair<int, int>>> ChainEdgePaths(
-		const std::vector<std::vector<std::pair<int, int>>>& edgePaths) {
+	static std::vector<EdgePath> ChainEdgePaths(
+		const std::vector<EdgePath>& edgePaths) {
 
 		std::map<std::tuple<int, int, bool>, int> ordered;
 
@@ -182,7 +184,7 @@ private:
 			auto nextEnd = thisEnd;
 			nextEnd++;
 
-			if (nextEnd != ordered.end() && 
+			if (nextEnd != ordered.end() &&
 				std::get<0>(thisEnd->first) == std::get<0>(nextEnd->first) &&
 				std::get<1>(thisEnd->first) == std::get<1>(nextEnd->first)) {
 				currentChain.push_back(nextEnd->second);
@@ -194,7 +196,7 @@ private:
 			}
 		}
 
-		std::vector<std::vector<std::pair<int, int>>> newPaths;
+		std::vector<EdgePath> newPaths;
 		for (const auto& chain : chains) {
 			auto path(edgePaths[*chain.begin()]);
 			for (int iTail(1); iTail < chain.size(); ++iTail) {
