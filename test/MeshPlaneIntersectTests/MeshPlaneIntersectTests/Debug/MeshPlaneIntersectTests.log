@@ -1,0 +1,14 @@
+﻿  MeshPlaneIntersectTests.cpp
+C:\Users\timly\Documents\GitHub\mesh-plane-intersection\src\MeshPlaneIntersect.hpp(163,2): warning C4018:  '<': signed/unsigned mismatch
+C:\Users\timly\Documents\GitHub\mesh-plane-intersection\src\MeshPlaneIntersect.hpp(162): message :  while compiling class template member function 'bool MeshPlaneIntersect<double>::GetStartingEdgePath(const std::vector<MeshPlaneIntersect<T>::EdgePath,std::allocator<_Ty>> &,std::vector<bool,std::allocator<bool>> &,MeshPlaneIntersect<double>::EdgePath &)'
+C:\Users\timly\Documents\GitHub\mesh-plane-intersection\src\MeshPlaneIntersect.hpp(162): message :         with
+C:\Users\timly\Documents\GitHub\mesh-plane-intersection\src\MeshPlaneIntersect.hpp(162): message :         [
+C:\Users\timly\Documents\GitHub\mesh-plane-intersection\src\MeshPlaneIntersect.hpp(162): message :             _Ty=MeshPlaneIntersect<T>::EdgePath
+C:\Users\timly\Documents\GitHub\mesh-plane-intersection\src\MeshPlaneIntersect.hpp(162): message :         ]
+C:\Users\timly\Documents\GitHub\mesh-plane-intersection\src\MeshPlaneIntersect.hpp(205): message :  see reference to function template instantiation 'bool MeshPlaneIntersect<double>::GetStartingEdgePath(const std::vector<MeshPlaneIntersect<T>::EdgePath,std::allocator<_Ty>> &,std::vector<bool,std::allocator<bool>> &,MeshPlaneIntersect<double>::EdgePath &)' being compiled
+C:\Users\timly\Documents\GitHub\mesh-plane-intersection\src\MeshPlaneIntersect.hpp(205): message :         with
+C:\Users\timly\Documents\GitHub\mesh-plane-intersection\src\MeshPlaneIntersect.hpp(205): message :         [
+C:\Users\timly\Documents\GitHub\mesh-plane-intersection\src\MeshPlaneIntersect.hpp(205): message :             _Ty=MeshPlaneIntersect<T>::EdgePath
+C:\Users\timly\Documents\GitHub\mesh-plane-intersection\src\MeshPlaneIntersect.hpp(205): message :         ]
+C:\Users\timly\Documents\GitHub\mesh-plane-intersection\test\MeshPlaneIntersectTests\MeshPlaneIntersectTests\MeshPlaneIntersectTests.cpp(16): message :  see reference to class template instantiation 'MeshPlaneIntersect<double>' being compiled
+  MeshPlaneIntersectTests.vcxproj -> C:\Users\timly\Documents\GitHub\mesh-plane-intersection\test\MeshPlaneIntersectTests\Debug\MeshPlaneIntersectTests.dll

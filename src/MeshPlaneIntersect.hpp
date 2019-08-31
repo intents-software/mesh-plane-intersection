@@ -5,11 +5,11 @@
 #include <vector>
 #include <array>
 #include <map>
-#include <algorithm>
 
 template <class T>
-struct MeshPlaneIntersect {
+class MeshPlaneIntersect {
 
+public:
 	typedef std::array<T, 3> Vec3D;
 	typedef std::array<int, 3> Face;
 
@@ -46,31 +46,37 @@ private:
 		return Vec3D{ b[0] - a[0],b[1] - a[1],b[2] - a[2] };
 	}
 
-	static Vec3D factor(const Vec3D& a, const T& factor) {
-		return Vec3D{ a[0] * factor,a[1] * factor,a[2] * factor };
+	static void factorBy(Vec3D& a, const T& factor) {
+		for (int i(0); i < 3; ++i) {
+			a[i] *= factor;
+		}
 	}
 
 	typedef std::pair<int, int> Edge;
 	typedef std::vector<Edge> EdgePath;
 	static std::vector<Path3D> _Intersect(const Mesh& mesh, const Plane& plane) {
-
 		const auto vertexOffsets = VertexOffsets(*mesh.vertices, plane);
 		auto crossingFaces = CrossingFaces(*mesh.faces, vertexOffsets);
-		
 		std::vector<EdgePath> edgePaths;
 		while (crossingFaces.size() > 0) {
 			edgePaths.push_back(GetEdgePath(crossingFaces));
 		}
-		edgePaths = ChainEdgePaths(edgePaths);
+		ChainEdgePaths(edgePaths);
+		return ConstructGeometricPaths(mesh, edgePaths, vertexOffsets);
+	}
 
+	static std::vector<Path3D> ConstructGeometricPaths(const Mesh& mesh,
+		const std::vector<EdgePath>& edgePaths, const std::vector<T> vertexOffsets) {
 		std::vector<Path3D> paths;
 		for (const auto& edgePath : edgePaths) {
 			Path3D path;
 			for (const auto& edge : edgePath) {
-				auto ratio = vertexOffsets[edge.first] / (vertexOffsets[edge.first] - vertexOffsets[edge.second]);
-				auto vector = difference(mesh.vertices->at(edge.first), mesh.vertices->at(edge.second));
-				auto point = add(mesh.vertices->at(edge.first), factor(vector, ratio));
-				path.points.push_back(point);
+				const auto& edgeStart(mesh.vertices->at(edge.first));
+				auto vector(difference(edgeStart, mesh.vertices->at(edge.second)));
+				const auto& offset1(vertexOffsets[edge.first]);
+				const auto& offset2(vertexOffsets[edge.second]);
+				factorBy(vector, offset1 / (offset1 - offset2));
+				path.points.push_back(add(edgeStart, vector));
 			}
 			path.isClosed = edgePath.front() == edgePath.back();
 			if (path.isClosed) {
@@ -111,13 +117,11 @@ private:
 	static CrossingFaceMap CrossingFaces(const std::vector<Face>& faces, const std::vector<T>& vertexOffsets) {
 		CrossingFaceMap crossingFaces;
 		for (const auto& face : faces) {
-
 			const auto e1 = DoesEdgeCrossPlane(face[0], face[1], vertexOffsets);
 			const auto e2 = DoesEdgeCrossPlane(face[1], face[2], vertexOffsets);
-
-			if (e1 == NONE && e2 == NONE)
+			if (e1 == NONE && e2 == NONE) {
 				continue;
-
+			}
 			int oddVertex = e1 == NONE ? 2 : e2 == NONE ? 0 : 1;
 			const bool oddIsHigher = vertexOffsets[face[oddVertex]] > 0;
 			crossingFaces[{face[(oddVertex + 1 + oddIsHigher) % 3], face[oddVertex]}] =
@@ -135,7 +139,6 @@ private:
 			closingVertex = currentFace->second;
 		}
 		edgePath.push_back({ edgePath.back().second, closingVertex });
-
 		for (auto& edge : edgePath) {
 			if (edge.first > edge.second) {
 				std::swap(edge.first, edge.second);
@@ -155,56 +158,54 @@ private:
 		return currentFace != crossingFaces.end();
 	}
 
-	static std::vector<EdgePath> ChainEdgePaths(
-		const std::vector<EdgePath>& edgePaths) {
-
-		std::map<std::tuple<int, int, bool>, int> ordered;
-
-		int iPath(0);
-		for (const auto& path : edgePaths) {
-			ordered[{path.front().first, path.front().second, true}] = iPath;
-			ordered[{path.back().first, path.back().second, false}] = iPath++;
+	static bool GetStartingEdgePath(const std::vector<EdgePath>& edgePaths,
+		std::vector<bool>& usedPaths, EdgePath& startPath) {
+		for (auto iPath(0); iPath < edgePaths.size(); ++iPath) {
+			if (usedPaths[iPath]) {
+				continue;
+			}
+			startPath = edgePaths[iPath];
+			usedPaths[iPath] = true;
+			return true;
 		}
-		std::vector<std::vector<int>> chains;
-		std::vector<int> currentChain;
-		for (auto thisEnd(ordered.begin()); thisEnd != ordered.end(); thisEnd++) {
+		return false;
+	}
 
-			if (currentChain.size() == 0) {
-				currentChain.push_back(thisEnd->second);
-				thisEnd++;
+	static bool InsertConnectingEdgePath(const std::vector<EdgePath>& edgePaths,
+		std::vector<bool>& usedPaths, EdgePath& currentChain) {
+		int iPath(-1);
+		for (auto& path : edgePaths) {
+			++iPath;
+			if (usedPaths[iPath]) {
+				continue;
 			}
-			if (std::get<2>(thisEnd->first)) {
-				thisEnd++;
-			}
-			if (thisEnd == ordered.end()) {
-				chains.push_back(currentChain);
-				currentChain.clear();
-				break;
-			}
-			auto nextEnd = thisEnd;
-			nextEnd++;
+			if (path.front() == currentChain.back())
+				currentChain.insert(currentChain.end(), path.begin() + 1, path.end());
+			else if (path.back() == currentChain.back())
+				currentChain.insert(currentChain.end(), path.rend(), path.rbegin() - 1);
+			else if (path.back() == currentChain.front())
+				currentChain.insert(currentChain.begin(), path.begin(), path.end() - 1);
+			else if (path.front() == currentChain.front())
+				currentChain.insert(currentChain.begin(), path.rend() + 1, path.rbegin());
+			else continue;
 
-			if (nextEnd != ordered.end() &&
-				std::get<0>(thisEnd->first) == std::get<0>(nextEnd->first) &&
-				std::get<1>(thisEnd->first) == std::get<1>(nextEnd->first)) {
-				currentChain.push_back(nextEnd->second);
-				thisEnd++;
-			}
-			else {
-				chains.push_back(currentChain);
-				currentChain.clear();
-			}
+			usedPaths[iPath] = true;
+			return true;
 		}
+		return false;
+	}
 
-		std::vector<EdgePath> newPaths;
-		for (const auto& chain : chains) {
-			auto path(edgePaths[*chain.begin()]);
-			for (int iTail(1); iTail < chain.size(); ++iTail) {
-				const auto& tail(edgePaths[chain[iTail]]);
-				path.insert(path.end(), tail.begin() + 1, tail.end());
-			}
-			newPaths.push_back(path);
+	static void ChainEdgePaths(std::vector<EdgePath>& edgePaths) {
+		if (edgePaths.size() < 1) {
+			return;
 		}
-		return newPaths;
+		std::vector<bool> usedPaths(edgePaths.size());
+		std::vector<EdgePath> chainedPaths;
+		EdgePath chain;
+		while (GetStartingEdgePath(edgePaths, usedPaths, chain)) {
+			while (InsertConnectingEdgePath(edgePaths, usedPaths, chain)) {}
+			chainedPaths.push_back(chain);
+		}
+		edgePaths = chainedPaths;
 	}
 };
