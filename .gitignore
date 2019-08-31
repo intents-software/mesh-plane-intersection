@@ -1,0 +1,7 @@
+# Visual studio settings
+.vs
+
+# Build output
+Debug
+Release
+x64
