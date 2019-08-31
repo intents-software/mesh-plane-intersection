@@ -1,6 +1,5 @@
-#include "pch.h"
 #include "CppUnitTest.h"
-#include "../../../src/MeshPlaneIntersect.hpp"
+#include "MeshPlaneIntersect.hpp"
 
 using namespace Microsoft::VisualStudio::CppUnitTestFramework;
 typedef MeshPlaneIntersect<double> Intersector;
