@@ -29,13 +29,17 @@ public:
 	};
 
 	static std::vector<Path3D> Intersect(const Mesh& mesh, const Plane& plane) {
-		return _Intersect(mesh, plane);
+		return _Execute(mesh, plane, false);
+	}
+
+	static std::vector<Path3D> Clip(const Mesh& mesh, const Plane& plane) {
+		return _Execute(mesh, plane, true);
 	}
 
 private:
-
-	// constructor is private, use the static method
-	// MeshPlaneIntersect<T>::Intersect(mesh, plane)
+	// constructor is private, use the static methods
+	// MeshPlaneIntersect<T>::Intersect(mesh, plane) or
+	// MeshPlaneIntersect<T>::Clip(mesh, plane)
 	MeshPlaneIntersect() {};
 
 	static Vec3D add(const Vec3D& a, const Vec3D& b) {
@@ -54,20 +58,93 @@ private:
 
 	typedef std::pair<int, int> Edge;
 	typedef std::vector<Edge> EdgePath;
-	static std::vector<Path3D> _Intersect(const Mesh& mesh, const Plane& plane) {
-		const auto vertexOffsets = VertexOffsets(*mesh.vertices, plane);
-		auto crossingFaces = CrossingFaces(*mesh.faces, vertexOffsets);
+	struct VertexPath {
+		Edge StartEdge, EndEdge;
+		std::vector<int> vertices;
+		bool isUsed = false;
+	};
+
+	static std::vector<Path3D> _Execute(const Mesh& mesh, const Plane& plane, const bool isClip) {
+		const auto vertexOffsets(VertexOffsets(*mesh.vertices, plane));
+		auto edgePaths(EdgePaths(*mesh.faces, vertexOffsets));
+		ChainEdgePaths(edgePaths);
+		if (!isClip) {
+			return ConstructGeometricPaths(mesh, edgePaths, nullptr, vertexOffsets);
+		}
+		auto freeEdges = FreeEdges(*mesh.faces, vertexOffsets);
+		auto vertexPaths = VertexPaths(freeEdges, vertexOffsets);
+		return ConstructGeometricPaths(mesh, edgePaths, &vertexPaths, vertexOffsets);
+	}
+
+	static std::vector<EdgePath> EdgePaths(const std::vector<Face>& faces, const std::vector<T>& vertexOffsets) {
+		auto crossingFaces = CrossingFaces(faces, vertexOffsets);
 		std::vector<EdgePath> edgePaths;
 		while (crossingFaces.size() > 0) {
 			edgePaths.push_back(GetEdgePath(crossingFaces));
 		}
-		ChainEdgePaths(edgePaths);
-		return ConstructGeometricPaths(mesh, edgePaths, vertexOffsets);
+		return edgePaths;
+	}
+
+	static std::vector<Path3D> ClosedVertexPaths(std::vector<VertexPath>* vertexPaths,
+		const std::vector<Vec3D>& vectices) {
+
+		std::vector<Path3D> closedVertexPaths;
+		if (!vertexPaths) {
+			return closedVertexPaths;
+		}
+		for (auto& vertexPath : *vertexPaths) {
+			if (vertexPath.vertices.size() == 0 ||
+				vertexPath.StartEdge != vertexPath.EndEdge) {
+				continue;
+			}
+			Path3D path;
+			for (const auto& iVertex : vertexPath.vertices) {
+				path.points.push_back(vectices[iVertex]);
+			}
+			if (vertexPath.vertices.front() == vertexPath.vertices.back()) {
+				path.points.pop_back();
+			}
+			path.isClosed = true;
+			closedVertexPaths.push_back(path);
+			vertexPath.isUsed = true;
+		}
+		return closedVertexPaths;
+	}
+
+	static void ClosePath(Path3D& path, const EdgePath& edgePath,
+		std::vector<VertexPath>& vertexPaths, const std::vector<Vec3D>& vertices) {
+
+		for (auto& vertexPath : vertexPaths) {
+			if (vertexPath.isUsed) {
+				continue;
+			}
+			const bool append(vertexPath.StartEdge == edgePath.back());
+			const bool prepend(vertexPath.EndEdge == edgePath.front());
+			const bool appendReverse(vertexPath.EndEdge == edgePath.back());
+			const bool prependReverse(vertexPath.StartEdge == edgePath.front());
+			if (!(append && prepend) && !(appendReverse && prependReverse)) {
+				continue;
+			}
+			path.isClosed = true;
+			std::vector<Vec3D> newPoints;
+			for (const auto& iVertex : vertexPath.vertices) {
+				newPoints.push_back(vertices[iVertex]);
+			}
+			if (append) {
+				path.points.insert(path.points.end(), newPoints.begin(), newPoints.end());
+			}
+			else {
+				path.points.insert(path.points.end(), newPoints.rbegin(), newPoints.rend());
+			}
+			vertexPath.isUsed = true;
+			return;
+		}
 	}
 
 	static std::vector<Path3D> ConstructGeometricPaths(const Mesh& mesh,
-		const std::vector<EdgePath>& edgePaths, const std::vector<T> vertexOffsets) {
-		std::vector<Path3D> paths;
+		const std::vector<EdgePath>& edgePaths, std::vector<VertexPath>* vertexPaths,
+		const std::vector<T>& vertexOffsets) {
+		std::vector<Path3D> paths = ClosedVertexPaths(vertexPaths, *mesh.vertices);
 		for (const auto& edgePath : edgePaths) {
 			Path3D path;
 			for (const auto& edge : edgePath) {
@@ -81,6 +158,9 @@ private:
 			path.isClosed = edgePath.front() == edgePath.back();
 			if (path.isClosed) {
 				path.points.pop_back();
+			}
+			else if(vertexPaths){
+				ClosePath(path, edgePath, *vertexPaths, *mesh.vertices);
 			}
 			paths.push_back(path);
 		}
@@ -130,6 +210,12 @@ private:
 		return crossingFaces;
 	}
 
+	static void AlignEdge(Edge& edge) {
+		if (edge.first > edge.second) {
+			std::swap(edge.first, edge.second);
+		}
+	}
+
 	static EdgePath GetEdgePath(CrossingFaceMap& crossingFaces) {
 		auto currentFace = crossingFaces.begin();
 		EdgePath edgePath({ currentFace->first });
@@ -140,9 +226,7 @@ private:
 		}
 		edgePath.push_back({ edgePath.back().second, closingVertex });
 		for (auto& edge : edgePath) {
-			if (edge.first > edge.second) {
-				std::swap(edge.first, edge.second);
-			}
+			AlignEdge(edge);
 		}
 		return edgePath;
 	}
@@ -158,14 +242,15 @@ private:
 		return currentFace != crossingFaces.end();
 	}
 
-	static bool GetStartingEdgePath(const std::vector<EdgePath>& edgePaths,
-		std::vector<bool>& usedPaths, EdgePath& startPath) {
-		for (auto iPath(0); iPath < edgePaths.size(); ++iPath) {
-			if (usedPaths[iPath]) {
+	template <typename Type>
+	static bool GetStartingItem(const std::vector<Type>& items,
+		std::vector<bool>& usedItems, Type& startItem) {
+		for (auto i(0); i < items.size(); ++i) {
+			if (usedItems[i]) {
 				continue;
 			}
-			startPath = edgePaths[iPath];
-			usedPaths[iPath] = true;
+			startItem = items[i];
+			usedItems[i] = true;
 			return true;
 		}
 		return false;
@@ -182,7 +267,7 @@ private:
 			if (path.front() == currentChain.back())
 				currentChain.insert(currentChain.end(), path.begin() + 1, path.end());
 			else if (path.back() == currentChain.back())
-				currentChain.insert(currentChain.end(), path.rend(), path.rbegin() - 1);
+				currentChain.insert(currentChain.end(), path.rend(), path.rbegin() + 1);
 			else if (path.back() == currentChain.front())
 				currentChain.insert(currentChain.begin(), path.begin(), path.end() - 1);
 			else if (path.front() == currentChain.front())
@@ -202,10 +287,107 @@ private:
 		std::vector<bool> usedPaths(edgePaths.size());
 		std::vector<EdgePath> chainedPaths;
 		EdgePath chain;
-		while (GetStartingEdgePath(edgePaths, usedPaths, chain)) {
+		while (GetStartingItem(edgePaths, usedPaths, chain)) {
 			while (InsertConnectingEdgePath(edgePaths, usedPaths, chain)) {}
 			chainedPaths.push_back(chain);
 		}
 		edgePaths = chainedPaths;
+	}
+
+	static std::vector<Edge> FreeEdges(const std::vector<Face>& faces, const std::vector<T>& vertexOffsets) {
+		std::map<Edge, int> edgeFaceCount;
+		for (const auto& face : faces) {
+			for (int iEdge(0); iEdge < 3; ++iEdge) {
+				const auto& v0(face[iEdge]);
+				const auto& v1(face[(iEdge + 1) % 3]);
+				if (vertexOffsets[v0] < 0 && vertexOffsets[v1] < 0) {
+					continue;
+				}
+				Edge thisEdge(v0, v1);
+				AlignEdge(thisEdge);
+				edgeFaceCount[thisEdge]++;
+			}
+		}
+		std::vector<Edge> freeEdges;
+		for (const auto& edge : edgeFaceCount) {
+			if (edge.second == 1) {
+				freeEdges.push_back(edge.first);
+			}
+		}
+		return freeEdges;
+	}
+
+	static std::vector<VertexPath> VertexPaths(const std::vector<Edge>& freeEdges, const std::vector<T> vertexOffsets) {
+		std::vector<VertexPath> vertexPaths;
+		std::vector<bool> usedEdges(freeEdges.size());
+		Edge edge;
+		while (GetStartingItem(freeEdges, usedEdges, edge)) {
+			VertexPath path;
+			path.StartEdge = path.EndEdge = Edge(-1, -1);
+
+			if (vertexOffsets[edge.first] > 0) {
+				path.vertices.push_back(edge.first);
+				if (vertexOffsets[edge.second] < 0) {
+					path.StartEdge = edge;
+				}
+			}
+			if (vertexOffsets[edge.second] > 0) {
+				path.vertices.push_back(edge.second);
+				if (vertexOffsets[edge.first] < 0) {
+					path.EndEdge = edge;
+				}
+			}
+			while (ExtendVertexPathUsing(path, freeEdges, usedEdges, vertexOffsets)) {
+				// chain getting longer, available edges getting smaller
+			}
+			vertexPaths.push_back(path);
+		}
+		return vertexPaths;
+	}
+
+	static bool ExtendVertexPathUsing(VertexPath& vertexPath, const std::vector<Edge>& freeEdges,
+		std::vector<bool>& usedFreeEdges, const std::vector<T> vertexOffsets) {
+
+		for (auto iEdge(0); iEdge < freeEdges.size(); iEdge++) {
+			if (usedFreeEdges[iEdge]) {
+				continue;
+			}
+			const auto& edge(freeEdges[iEdge]);
+			const bool edgeCrosses = DoesEdgeCrossPlane(edge.first,
+				edge.second, vertexOffsets) != CrossingPlane::NONE;
+
+			// try adding to the back of the chain
+			if (vertexPath.EndEdge.first == -1) {
+				const bool append(vertexPath.vertices.back() == edge.first);
+				const bool appendReverse(vertexPath.vertices.back() == edge.second);
+				if (append || appendReverse) {
+					if (edgeCrosses) {
+						vertexPath.EndEdge = edge;
+					}
+					else {
+						vertexPath.vertices.push_back(append ? edge.second : edge.first);
+					}
+					usedFreeEdges[iEdge] = true;
+					return true;
+				}
+			}
+			// try adding to the front of the chain
+			if (vertexPath.StartEdge.first == -1) {
+				const bool prepend(vertexPath.vertices.front() == edge.first);
+				const bool prependReverse(vertexPath.vertices.front() == edge.second);
+				if (prepend || prependReverse) {
+					if (edgeCrosses) {
+						vertexPath.StartEdge = edge;
+					}
+					else {
+						vertexPath.vertices.insert(vertexPath.vertices.begin(),
+							prepend ? edge.second : edge.first);
+					}
+					usedFreeEdges[iEdge] = true;
+					return true;
+				}
+			}
+		}
+		return false;
 	}
 };
