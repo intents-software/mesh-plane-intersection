@@ -239,12 +239,12 @@ namespace IntersectionTests
 
 			result = Intersector::Clip(mesh, plane);
 			Assert::AreEqual(3, (int)result.size(), L"4a There should be three polygons");
-			Assert::AreEqual(6, (int)result[0].points.size(), L"4b The first polygon should contain six points");
+			Assert::AreEqual(4, (int)result[0].points.size(), L"4b The first polygon should contain four points");
 			Assert::IsTrue(result[0].isClosed, L"4c The first polygon should be closed");
 			Assert::AreEqual(4, (int)result[1].points.size(), L"4d The second polygon should contain four points");
 			Assert::IsTrue(result[1].isClosed, L"4e The second polygon should be closed");
-			Assert::AreEqual(4, (int)result[1].points.size(), L"4d The third polygon should contain four points");
-			Assert::IsTrue(result[1].isClosed, L"4e The third polygon should be closed");
+			Assert::AreEqual(6, (int)result[2].points.size(), L"4d The third polygon should contain six points");
+			Assert::IsTrue(result[2].isClosed, L"4e The third polygon should be closed");
 
 		}
 
@@ -371,11 +371,8 @@ namespace IntersectionTests
 			Assert::IsFalse(result[1].isClosed, L"3e The second polygon should be open");
 
 			result = Intersector::Clip(mesh, plane);
-			Assert::AreEqual(2, (int)result.size(), L"4a There should be two polygons");
-			Assert::AreEqual(10, (int)result[0].points.size(), L"4b The first polygon should contain ten points");
-			Assert::IsTrue(result[0].isClosed, L"4c The first polygon should be closed");
-			Assert::AreEqual(5, (int)result[1].points.size(), L"4d The second polygon should contain five points");
-			Assert::IsTrue(result[1].isClosed, L"4e The second polygon should be closed");
+			Assert::AreEqual(1, (int)result.size(), L"4a There should be one polygon");
+			Assert::AreEqual(16, (int)result[0].points.size(), L"4b The first polygon should contain sixteen points");
 		}
 
 		TEST_METHOD(DoublePyramidMeshIncomplete3)
@@ -422,13 +419,11 @@ namespace IntersectionTests
 			Assert::IsFalse(result[2].isClosed, L"1g The third polygon should be open");
 
 			result = Intersector::Clip(mesh, plane);
-			Assert::AreEqual(3, (int)result.size(), L"2a There should be three polygons");
+			Assert::AreEqual(2, (int)result.size(), L"2a There should be two polygons");
 			Assert::AreEqual(5, (int)result[0].points.size(), L"2b The first polygon should contain five points");
 			Assert::IsTrue(result[0].isClosed, L"2c The first polygon should be closed");
-			Assert::AreEqual(3, (int)result[1].points.size(), L"2d The second polygon should contain three points");
+			Assert::AreEqual(6, (int)result[1].points.size(), L"2d The second polygon should contain six points");
 			Assert::IsTrue(result[1].isClosed, L"2e The second polygon should be closed");
-			Assert::AreEqual(3, (int)result[2].points.size(), L"2f The third polygon should contain three points");
-			Assert::IsTrue(result[2].isClosed, L"2g The third polygon should be closed");
 
 			plane.normal[2] = -1;
 
@@ -442,13 +437,8 @@ namespace IntersectionTests
 			Assert::IsFalse(result[2].isClosed, L"3g The third polygon should be open");
 
 			result = Intersector::Clip(mesh, plane);
-			Assert::AreEqual(3, (int)result.size(), L"4a There should be three polygons");
-			Assert::AreEqual(6, (int)result[0].points.size(), L"4b The first polygon should contain fix points");
-			Assert::IsTrue(result[0].isClosed, L"4c The first polygon should be closed");
-			Assert::AreEqual(4, (int)result[1].points.size(), L"4d The second polygon should contain four points");
-			Assert::IsTrue(result[1].isClosed, L"4e The second polygon should be closed");
-			Assert::AreEqual(4, (int)result[2].points.size(), L"4f The third polygon should contain four points");
-			Assert::IsTrue(result[2].isClosed, L"4g The third polygon should be closed");
+			Assert::AreEqual(1, (int)result.size(), L"4a There should be one polygon");
+			Assert::AreEqual(16, (int)result[0].points.size(), L"4b The first polygon should contain sixteen points");
 		}
 	};
 }
