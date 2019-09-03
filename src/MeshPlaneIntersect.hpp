@@ -6,12 +6,12 @@
 #include <array>
 #include <map>
 
-template <class T>
+template <class FloatType, class IndexType>
 class MeshPlaneIntersect {
 
 public:
-	typedef std::array<T, 3> Vec3D;
-	typedef std::array<int, 3> Face;
+	typedef std::array<FloatType, 3> Vec3D;
+	typedef std::array<IndexType, 3> Face;
 
 	struct Mesh {
 		const std::vector<Vec3D>* vertices;
@@ -38,8 +38,8 @@ public:
 
 private:
 	// constructor is private, use the static methods
-	// MeshPlaneIntersect<T>::Intersect(mesh, plane) or
-	// MeshPlaneIntersect<T>::Clip(mesh, plane)
+	// MeshPlaneIntersect<FloatType, IndexType>::Intersect(mesh, plane) or
+	// MeshPlaneIntersect<FloatType, IndexType>::Clip(mesh, plane)
 	MeshPlaneIntersect() {};
 
 	static Vec3D add(const Vec3D& a, const Vec3D& b) {
@@ -50,7 +50,7 @@ private:
 		return Vec3D{ b[0] - a[0],b[1] - a[1],b[2] - a[2] };
 	}
 
-	static void factorBy(Vec3D& a, const T& factor) {
+	static void factorBy(Vec3D& a, const FloatType& factor) {
 		for (int i(0); i < 3; ++i) {
 			a[i] *= factor;
 		}
@@ -72,7 +72,7 @@ private:
 	}
 
 	static std::vector<EdgePath> EdgePaths(const std::vector<Face>& faces,
-		const std::vector<T>& vertexOffsets) {
+		const std::vector<FloatType>& vertexOffsets) {
 		auto crossingFaces = CrossingFaces(faces, vertexOffsets);
 		std::vector<EdgePath> edgePaths;
 		while (crossingFaces.size() > 0) {
@@ -83,30 +83,35 @@ private:
 
 	static std::vector<Path3D> ConstructGeometricPaths(const Mesh& mesh,
 		const std::vector<EdgePath>& edgePaths,
-		const std::vector<T>& vertexOffsets) {
+		const std::vector<FloatType>& vertexOffsets) {
 		std::vector<Path3D> paths;
 		for (const auto& edgePath : edgePaths) {
 			Path3D path;
+			bool skipThisPoint = path.isClosed = edgePath.front() == edgePath.back();
 			for (const auto& edge : edgePath) {
-				const auto& edgeStart(mesh.vertices->at(edge.first));
-				auto vector(difference(edgeStart, mesh.vertices->at(edge.second)));
-				const auto& offset1(vertexOffsets[edge.first]);
-				const auto& offset2(vertexOffsets[edge.second]);
-				factorBy(vector, offset1 / (offset1 - offset2));
-				path.points.push_back(add(edgeStart, vector));
-			}
-			path.isClosed = edgePath.front() == edgePath.back();
-			if (path.isClosed) {
-				path.points.pop_back();
+				if (skipThisPoint) {
+					skipThisPoint = false;
+				}
+				else if (edge.first == edge.second) {
+					path.points.push_back(mesh.vertices->at(edge.first));
+				}
+				else {
+					const auto& edgeStart(mesh.vertices->at(edge.first));
+					auto vector(difference(edgeStart, mesh.vertices->at(edge.second)));
+					const auto& offset1(vertexOffsets[edge.first]);
+					const auto& offset2(vertexOffsets[edge.second]);
+					factorBy(vector, offset1 / (offset1 - offset2));
+					path.points.push_back(add(edgeStart, vector));
+				}
 			}
 			paths.push_back(path);
 		}
 		return paths;
 	}
 
-	static const std::vector<T> VertexOffsets(const std::vector<Vec3D>& vertices,
+	static const std::vector<FloatType> VertexOffsets(const std::vector<Vec3D>& vertices,
 		const Plane& plane) {
-		std::vector<T> offsets(vertices.size());
+		std::vector<FloatType> offsets(vertices.size());
 		int iVertex(0);
 		for (const auto& vertex : vertices) {
 			offsets[iVertex++] = VertexOffset(vertex, plane);
@@ -114,7 +119,7 @@ private:
 		return offsets;
 	}
 
-	static T VertexOffset(const Vec3D& vertex, const Plane& plane) {
+	static FloatType VertexOffset(const Vec3D& vertex, const Plane& plane) {
 		return plane.normal[0] * (vertex[0] - plane.origin[0]) +
 			plane.normal[1] * (vertex[1] - plane.origin[1]) +
 			plane.normal[2] * (vertex[2] - plane.origin[2]);
@@ -127,14 +132,14 @@ private:
 	};
 
 	static CrossingPlane DoesEdgeCrossPlane(const int& v0, const int& v1,
-		const std::vector<T>& vertexOffsets) {
+		const std::vector<FloatType>& vertexOffsets) {
 		return vertexOffsets[v1] > 0 && vertexOffsets[v0] <= 0 ? UPWARDS :
 			vertexOffsets[v0] > 0 && vertexOffsets[v1] <= 0 ? DOWNWARDS : NONE;
 	}
 
 	typedef std::map<Edge, int> CrossingFaceMap;
 	static CrossingFaceMap CrossingFaces(const std::vector<Face>& faces,
-		const std::vector<T>& vertexOffsets) {
+		const std::vector<FloatType>& vertexOffsets) {
 		CrossingFaceMap crossingFaces;
 		for (const auto& face : faces) {
 			const auto e1 = DoesEdgeCrossPlane(face[0], face[1], vertexOffsets);
@@ -235,7 +240,8 @@ private:
 		edgePaths = chainedPaths;
 	}
 
-	static std::vector<Edge> FreeEdges(const std::vector<Face>& faces, const std::vector<T>& vertexOffsets) {
+	static std::vector<Edge> FreeEdges(const std::vector<Face>& faces,
+		const std::vector<FloatType>& vertexOffsets) {
 		std::map<Edge, int> edgeFaceCount;
 		for (const auto& face : faces) {
 			for (int iEdge(0); iEdge < 3; ++iEdge) {
@@ -264,7 +270,7 @@ private:
 		bool isUsed = false;
 	};
 	static std::vector<EdgePath> FreeEdgePaths(const std::vector<Edge>& freeEdges,
-		const std::vector<T> vertexOffsets) {
+		const std::vector<FloatType> vertexOffsets) {
 		std::vector<EdgePath> freeEdgePaths;
 		std::vector<bool> usedEdges(freeEdges.size());
 		Edge edge;
@@ -303,7 +309,7 @@ private:
 	}
 
 	static bool ExtendFreeEdgePath(FreeEdgePath& path, const std::vector<Edge>& freeEdges,
-		std::vector<bool>& usedFreeEdges, const std::vector<T> vertexOffsets) {
+		std::vector<bool>& usedFreeEdges, const std::vector<FloatType> vertexOffsets) {
 
 		for (auto iEdge(0); iEdge < freeEdges.size(); iEdge++) {
 			if (usedFreeEdges[iEdge]) {

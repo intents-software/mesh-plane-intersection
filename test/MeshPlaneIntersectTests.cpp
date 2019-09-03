@@ -2,7 +2,7 @@
 #include "MeshPlaneIntersect.hpp"
 
 using namespace Microsoft::VisualStudio::CppUnitTestFramework;
-typedef MeshPlaneIntersect<double> Intersector;
+typedef MeshPlaneIntersect<double, int> Intersector;
 
 namespace IntersectionTests
 {
