@@ -1,7 +1,4 @@
-// (c) 2019 Tim Lyon
-// This code is licensed under MIT license
-// https://github.com/tim-lyon/mesh-plane-intersection
-
+#pragma once
 #include <vector>
 #include <array>
 #include <map>
@@ -111,48 +108,45 @@ private:
 
 	static const std::vector<FloatType> VertexOffsets(const std::vector<Vec3D>& vertices,
 		const Plane& plane) {
-		std::vector<FloatType> offsets(vertices.size());
-		int iVertex(0);
-		for (const auto& vertex : vertices) {
-			offsets[iVertex++] = VertexOffset(vertex, plane);
-		}
+		std::vector<FloatType> offsets;
+		offsets.reserve(vertices.size());
+		std::transform(vertices.begin(), vertices.end(), std::back_inserter(offsets),
+			[&plane](const auto& vertex) {
+				return VertexOffset(vertex, plane);
+			});
 		return offsets;
 	}
 
 	static FloatType VertexOffset(const Vec3D& vertex, const Plane& plane) {
-		return plane.normal[0] * (vertex[0] - plane.origin[0]) +
-			plane.normal[1] * (vertex[1] - plane.origin[1]) +
-			plane.normal[2] * (vertex[2] - plane.origin[2]);
-	}
-
-	enum CrossingPlane {
-		DOWNWARDS = -1,
-		NONE = 0,
-		UPWARDS = 1
-	};
-
-	static CrossingPlane DoesEdgeCrossPlane(const int& v0, const int& v1,
-		const std::vector<FloatType>& vertexOffsets) {
-		return vertexOffsets[v1] > 0 && vertexOffsets[v0] <= 0 ? UPWARDS :
-			vertexOffsets[v0] > 0 && vertexOffsets[v1] <= 0 ? DOWNWARDS : NONE;
+		FloatType offset(0);
+		for (int i(0); i < 3; ++i) {
+			offset += plane.normal[i] * (vertex[i] - plane.origin[i]);
+		}
+		return offset;
 	}
 
 	typedef std::map<Edge, int> CrossingFaceMap;
 	static CrossingFaceMap CrossingFaces(const std::vector<Face>& faces,
 		const std::vector<FloatType>& vertexOffsets) {
-		CrossingFaceMap crossingFaces;
+		std::vector<std::pair<Edge, int>> crossingFaces;
 		for (const auto& face : faces) {
-			const auto e1 = DoesEdgeCrossPlane(face[0], face[1], vertexOffsets);
-			const auto e2 = DoesEdgeCrossPlane(face[1], face[2], vertexOffsets);
-			if (e1 == NONE && e2 == NONE) {
-				continue;
+			const bool edge1crosses = vertexOffsets[face[0]] * vertexOffsets[face[1]] < 0;
+			const bool edge2crosses = vertexOffsets[face[1]] * vertexOffsets[face[2]] < 0;
+			if (edge1crosses || edge2crosses) {
+				int oddVertex = edge2crosses - edge1crosses + 1;
+				const bool oddIsHigher = vertexOffsets[face[oddVertex]] > 0;
+				int v0 = oddVertex + 1 + oddIsHigher;
+				if (v0 > 2) {
+					v0 -= 3;
+				}
+				int v2 = oddVertex + 2 - oddIsHigher;
+				if (v2 > 2) {
+					v2 -= 3;
+				}
+				crossingFaces.push_back({ {face[v0], face[oddVertex]},face[v2] });
 			}
-			int oddVertex = e1 == NONE ? 2 : e2 == NONE ? 0 : 1;
-			const bool oddIsHigher = vertexOffsets[face[oddVertex]] > 0;
-			crossingFaces[{face[(oddVertex + 1 + oddIsHigher) % 3], face[oddVertex]}] =
-				face[(oddVertex + 2 - oddIsHigher) % 3];
 		}
-		return crossingFaces;
+		return CrossingFaceMap(crossingFaces.begin(), crossingFaces.end());
 	}
 
 	static void AlignEdge(Edge& edge) {
@@ -191,13 +185,12 @@ private:
 	template <typename Type>
 	static bool GetStartingItem(const std::vector<Type>& items,
 		std::vector<bool>& usedItems, Type& startItem) {
-		for (auto i(0); i < items.size(); ++i) {
-			if (usedItems[i]) {
-				continue;
+		for (size_t i(0); i < items.size(); ++i) {
+			if (!usedItems[i]) {
+				startItem = items[i];
+				usedItems[i] = true;
+				return true;
 			}
-			startItem = items[i];
-			usedItems[i] = true;
-			return true;
 		}
 		return false;
 	}
@@ -311,13 +304,12 @@ private:
 	static bool ExtendFreeEdgePath(FreeEdgePath& path, const std::vector<Edge>& freeEdges,
 		std::vector<bool>& usedFreeEdges, const std::vector<FloatType> vertexOffsets) {
 
-		for (auto iEdge(0); iEdge < freeEdges.size(); iEdge++) {
+		for (size_t iEdge(0); iEdge < freeEdges.size(); iEdge++) {
 			if (usedFreeEdges[iEdge]) {
 				continue;
 			}
 			const auto& edge(freeEdges[iEdge]);
-			const bool edgeCrosses = DoesEdgeCrossPlane(edge.first,
-				edge.second, vertexOffsets) != CrossingPlane::NONE;
+			const bool edgeCrosses = vertexOffsets[edge.first] * vertexOffsets[edge.second] < 0;
 
 			// try adding to the back of the chain
 			if (path.EndEdge.first == -1) {
