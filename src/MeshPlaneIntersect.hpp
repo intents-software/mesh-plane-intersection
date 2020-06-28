@@ -2,6 +2,7 @@
 #include <vector>
 #include <array>
 #include <map>
+#include <algorithm>
 
 template <class FloatType, class IndexType>
 class MeshPlaneIntersect {
