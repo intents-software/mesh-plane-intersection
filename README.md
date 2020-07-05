@@ -1,5 +1,7 @@
 # mesh-plane-intersection
-Header-only C++ class for intersecting a triangulated mesh with a plane. It returnes the intersecting polylines (or closed polygons), avoiding the need to manually assemble each intersecting segment into polyline loops.
+A header-only C++ class for intersecting a triangulated mesh with a plane.
+
+It returns the intersecting segments, joined into open and/or closed polylines.
 
 The class is templated to suit your required floating point coordinate type and integer index type. For example here we will use a typedef for easy reference:
 ```cpp
