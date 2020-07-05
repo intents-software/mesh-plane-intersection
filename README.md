@@ -20,10 +20,8 @@ std::vector<Intersector::Face> faces{
     {0,1,2}
 };
 
-// create the mesh object and pass it a pointer to the vertices and faces
-Intersector::Mesh mesh;
-mesh.vertices = &vertices;
-mesh.faces = &faces;
+// create the mesh object referencing the vertices and faces
+Intersector::Mesh mesh(vertices, faces);
 ```
 Finally, we need a plane to intersect with our mesh
 ```cpp

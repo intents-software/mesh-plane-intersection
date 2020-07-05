@@ -27,9 +27,7 @@ namespace IntersectionTests
 				{0,1,2}
 			};
 
-			Intersector::Mesh mesh;
-			mesh.vertices = &vertices;
-			mesh.faces = &faces;
+			Intersector::Mesh mesh(vertices, faces);
 
 			Intersector::Plane plane;
 
@@ -68,9 +66,7 @@ namespace IntersectionTests
 				{0,1,2}
 			};
 
-			Intersector::Mesh mesh;
-			mesh.vertices = &vertices;
-			mesh.faces = &faces;
+			Intersector::Mesh mesh(vertices, faces);
 
 			Intersector::Plane plane;
 			plane.origin[2] = -2;
@@ -104,9 +100,7 @@ namespace IntersectionTests
 				{0,1,2}
 			};
 
-			Intersector::Mesh mesh;
-			mesh.vertices = &vertices;
-			mesh.faces = &faces;
+			Intersector::Mesh mesh(vertices, faces);
 
 			Intersector::Plane plane;
 			plane.origin[2] = 2;
@@ -149,9 +143,7 @@ namespace IntersectionTests
 				{3,0,4}
 			};
 
-			Intersector::Mesh mesh;
-			mesh.vertices = &vertices;
-			mesh.faces = &faces;
+			Intersector::Mesh mesh(vertices, faces);
 
 			Intersector::Plane plane;
 
@@ -208,9 +200,7 @@ namespace IntersectionTests
 				{2,7,4}
 			};
 
-			Intersector::Mesh mesh;
-			mesh.vertices = &vertices;
-			mesh.faces = &faces;
+			Intersector::Mesh mesh(vertices, faces);
 
 			Intersector::Plane plane;
 
@@ -276,9 +266,7 @@ namespace IntersectionTests
 				{2,7,4}
 			};
 
-			Intersector::Mesh mesh;
-			mesh.vertices = &vertices;
-			mesh.faces = &faces;
+			Intersector::Mesh mesh(vertices, faces);
 
 			Intersector::Plane plane;
 
@@ -341,9 +329,7 @@ namespace IntersectionTests
 				{2,7,4}
 			};
 
-			Intersector::Mesh mesh;
-			mesh.vertices = &vertices;
-			mesh.faces = &faces;
+			Intersector::Mesh mesh(vertices, faces);
 
 			Intersector::Plane plane;
 
@@ -403,9 +389,7 @@ namespace IntersectionTests
 				{2,7,4}
 			};
 
-			Intersector::Mesh mesh;
-			mesh.vertices = &vertices;
-			mesh.faces = &faces;
+			Intersector::Mesh mesh(vertices, faces);
 
 			Intersector::Plane plane;
 

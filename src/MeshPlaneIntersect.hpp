@@ -12,8 +12,10 @@ public:
 	typedef std::array<IndexType, 3> Face;
 
 	struct Mesh {
-		const std::vector<Vec3D>* vertices;
-		const std::vector<Face>* faces;
+		const std::vector<Vec3D>& vertices;
+		const std::vector<Face>& faces;
+		Mesh(const std::vector<Vec3D>& vertices, const std::vector<Face>& faces) :
+			vertices(vertices), faces(faces) {}
 	};
 
 	struct Plane {
@@ -58,10 +60,10 @@ private:
 	typedef std::vector<Edge> EdgePath;
 	static std::vector<Path3D> _Execute(const Mesh& mesh, const Plane& plane,
 		const bool isClip) {
-		const auto vertexOffsets(VertexOffsets(*mesh.vertices, plane));
-		auto edgePaths(EdgePaths(*mesh.faces, vertexOffsets));
+		const auto vertexOffsets(VertexOffsets(mesh.vertices, plane));
+		auto edgePaths(EdgePaths(mesh.faces, vertexOffsets));
 		if (isClip) {
-			auto freeEdges = FreeEdges(*mesh.faces, vertexOffsets);
+			auto freeEdges = FreeEdges(mesh.faces, vertexOffsets);
 			auto freeEdgePaths = FreeEdgePaths(freeEdges, vertexOffsets);
 			edgePaths.insert(edgePaths.end(), freeEdgePaths.begin(), freeEdgePaths.end());
 		}
@@ -91,11 +93,11 @@ private:
 					skipThisPoint = false;
 				}
 				else if (edge.first == edge.second) {
-					path.points.push_back(mesh.vertices->at(edge.first));
+					path.points.push_back(mesh.vertices.at(edge.first));
 				}
 				else {
-					const auto& edgeStart(mesh.vertices->at(edge.first));
-					auto vector(difference(edgeStart, mesh.vertices->at(edge.second)));
+					const auto& edgeStart(mesh.vertices.at(edge.first));
+					auto vector(difference(edgeStart, mesh.vertices.at(edge.second)));
 					const auto& offset1(vertexOffsets[edge.first]);
 					const auto& offset2(vertexOffsets[edge.second]);
 					factorBy(vector, offset1 / (offset1 - offset2));
