@@ -33,7 +33,7 @@ Intersector::Plane plane;
 ```
 To carry out the intersection we simply call:
 ```cpp
-std::vector<Path3D> result = Intersector::Intersect(mesh, plane);
+auto result = mesh.Intersect(plane);
 // the result is a vector of Path3D objects, which are planar polylines
 // in 3D space. They have an additional attribute 'isClosed' to determine
 // if the path forms a closed loop. if false, the path is open
@@ -41,7 +41,7 @@ std::vector<Path3D> result = Intersector::Intersect(mesh, plane);
 ```
 There is a further method "Clip" which, as well as returning the intersection polygons, also returns the polygons around any free edges on the positive side of the intersection plane.
 ```cpp
-std::vector<Path3D> result = Intersector::Clip(mesh, plane);
+auto result = mesh.Clip(plane);
 // the result type is the same as above, but the polylines
 // are not neccessarily planar.
 // in this case we expect one, closed Path3D with three segments

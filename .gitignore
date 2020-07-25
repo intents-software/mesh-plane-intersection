@@ -6,3 +6,6 @@
 Debug
 Release
 x64
+
+#nuget
+packages
