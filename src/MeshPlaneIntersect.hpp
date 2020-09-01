@@ -145,7 +145,7 @@ public:
 		}
 
 		static EdgePath GetEdgePath(CrossingFaceMap& crossingFaces) {
-			auto currentFace = crossingFaces.begin();
+			auto currentFace = crossingFaces.cbegin();
 			EdgePath edgePath({ currentFace->first });
 			int closingVertex(currentFace->second);
 			while (GetNextPoint(currentFace, crossingFaces)) {
