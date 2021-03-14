@@ -3,6 +3,7 @@
 #include <array>
 #include <map>
 #include <algorithm>
+#include <iterator>
 
 template <class FloatType, class IndexType>
 class MeshPlaneIntersect {
@@ -132,7 +133,9 @@ public:
 					if (v2 > 2) {
 						v2 -= 3;
 					}
-					crossingFaces.push_back({ {face[v0], face[oddVertex]},face[v2] });
+					crossingFaces.push_back({
+						{ static_cast<int>(face[v0]), static_cast<int>(face[oddVertex]) },
+						static_cast<int>(face[v2]) });
 				}
 			}
 			return CrossingFaceMap(crossingFaces.begin(), crossingFaces.end());
